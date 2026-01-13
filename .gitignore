@@ -1,11 +1,28 @@
 # Ignore datasets
-data/*
-!data/README.md
+data/*.csv
+data/*.xlsx
+data/*.json
 
-# Ignore models
+# Ignore Pickle models
 model/*.pkl
+
+# Allow README in data folder
+!data/README.md
 
 # Python cache
 __pycache__/
 *.pyc
-.env
+
+# Virtual environments
+venv/
+env/
+
+# Streamlit cache
+.streamlit/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
