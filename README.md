@@ -1,66 +1,66 @@
 # Public Health Risk Prediction System
 
-## Overview
-This project is an end-to-end machine learning system that classifies regions
-into **High Risk** and **Low Risk** categories using government healthcare data.
+## 🚀 Overview
+This project predicts **public health risk** using real-world health indicators.
+It includes:
+✔ Machine Learning Model  
+✔ Flask REST API  
+✔ Streamlit UI  
+✔ Data pipeline & feature engineering  
 
-The objective is to assist policymakers and public health authorities in
-identifying regions that require priority healthcare intervention.
+## 🧠 ML Pipeline
+1. Raw CSV → cleaned
+2. Feature extraction (15 inputs)
+3. Risk label creation
+4. Random Forest model trained
+5. Model exported as `best_model.pkl`
 
----
-
-## Problem Statement
-Government healthcare data is often underutilized in proactive decision-making.
-This project uses machine learning to analyze public health indicators and
-predict regional healthcare risk levels to support data-driven policy planning.
-
----
-
-## Dataset
-The project uses publicly available government healthcare datasets
-(World Health Organization / World Bank), which include indicators such as:
-- Life expectancy
-- Infant mortality rate
-- Health expenditure
-- Population statistics
-
----
-
-## Machine Learning Approach
-- Data preprocessing and cleaning
-- Feature selection and scaling
-- Supervised learning models
-- Model evaluation using classification metrics
-
----
-
-## Tech Stack
-- Python
-- Pandas, NumPy
+## 🛠 Tech Used
+- Python 3.11+
+- Pandas / NumPy
 - Scikit-learn
-- Matplotlib
+- Flask
 - Streamlit
 
----
-
-## Project Structure
-public-health-risk-ml/
-├── app/ # Streamlit application
-├── data/ # Dataset files
-├── model/ # Training scripts
-├── notebooks/ # EDA notebooks
+## 🏗 Project Structure
+.
+├── data/ (ignored)
+├── model/ (contains training script)
+│ ├── train.py
+├── app/
+│ ├── app.py (API)
+│ ├── ui.py (Web UI)
 ├── requirements.txt
 └── README.md
 
----
+## ▶ How to Run
 
-## Project Status
-**Phase 1 – MVP under development**
+### 1️⃣ Train the model
+python model/train.py
+### 2️⃣ Start API
+python app/app.py
 
----
+nginx
+Copy code
+API runs at:  
+http://127.0.0.1:5000/predict
 
-## Future Improvements
-- Incorporate additional healthcare indicators
-- Improve feature engineering
-- Add explainability (SHAP)
-- Deploy the system on cloud infrastructure
+### 3️⃣ Start UI
+streamlit run app/ui.py
+
+markdown
+Copy code
+
+UI runs at:  
+http://localhost:8501/
+
+## 📅 Next Goals
+- Add feedback logging
+- User authentication
+- Deploy API + UI in cloud
+- Convert to microservices
+- Dashboard + history tracking
+
+## 🙌 Author
+Bhavina Parmar  
+Public Health Risk ML – Startup Vision Project
