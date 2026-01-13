@@ -1,27 +1,66 @@
-# Dataset Description
+# Public Health Risk Prediction System
 
-## Source
-Global Health Statistics Dataset  
-Kaggle: https://www.kaggle.com/datasets/malaiarasugraj/global-health-statistics
+## 🚀 Overview
+This project predicts **public health risk** using real-world health indicators.
+It includes:
+✔ Machine Learning Model  
+✔ Flask REST API  
+✔ Streamlit UI  
+✔ Data pipeline & feature engineering  
 
-## Description
-This dataset contains country-level health indicators including:
-- Mortality rates
-- Disease prevalence
-- Health expenditure
-- Life expectancy
-- Demographic indicators
+## 🧠 ML Pipeline
+1. Raw CSV → cleaned
+2. Feature extraction (15 inputs)
+3. Risk label creation
+4. Random Forest model trained
+5. Model exported as `best_model.pkl`
 
-## Usage in this Project
-- Raw dataset is NOT committed due to size limits
-- Used to predict public health risk level (High / Low)
-- Target variable created using statistical thresholding
+## 🛠 Tech Used
+- Python 3.11+
+- Pandas / NumPy
+- Scikit-learn
+- Flask
+- Streamlit
 
-## Preprocessing Steps
-- Missing value handling
-- Feature scaling
-- Binary risk labeling based on median threshold
+## 🏗 Project Structure
+.
+├── data/ (ignored)
+├── model/ (contains training script)
+│ ├── train.py
+├── app/
+│ ├── app.py (API)
+│ ├── ui.py (Web UI)
+├── requirements.txt
+└── README.md
 
-## Ethical Note
-This project is for educational and research purposes only.
-Predictions should not be used for real medical decisions.
+## ▶ How to Run
+
+### 1️⃣ Train the model
+python model/train.py
+### 2️⃣ Start API
+python app/app.py
+
+nginx
+Copy code
+API runs at:  
+http://127.0.0.1:5000/predict
+
+### 3️⃣ Start UI
+streamlit run app/ui.py
+
+markdown
+Copy code
+
+UI runs at:  
+http://localhost:8501/
+
+## 📅 Next Goals
+- Add feedback logging
+- User authentication
+- Deploy API + UI in cloud
+- Convert to microservices
+- Dashboard + history tracking
+
+## 🙌 Author
+Bhavina Parmar  
+Public Health Risk ML – Startup Vision Project
