@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 import joblib
 import numpy as np
 import os
+import csv
+import datetime
 
 app = Flask(__name__)
 
@@ -34,6 +36,13 @@ except Exception as e:
     print("❌ Failed loading features:", e)
 
 print("🐍 Reached end of load block\n")
+FEATURE_IMPORTANCE = None
+
+if model is not None and hasattr(model, "feature_importances_"):
+    FEATURE_IMPORTANCE = dict(
+        zip(FEATURES, model.feature_importances_)
+    )
+
 
 @app.route("/")
 def home():
@@ -55,8 +64,60 @@ def predict():
 
     values = [data[f] for f in FEATURES]
     X = np.array([values], dtype=float)
-    pred = model.predict(X)[0]
-    return jsonify({"prediction": int(pred)})
+    proba=model.predict_proba(X)[0]
+    pred=int(proba.argmax())
+    confidence=float(proba[pred])
+    return jsonify({
+        "prediction":pred,
+        "confidence":round(confidence,4)
+    })
+    # pred = model.predict(X)[0]
+    # return jsonify({"prediction": int(pred)})
+
+@app.route("/feature-importance", methods=["GET"])
+def feature_importance():
+    if FEATURE_IMPORTANCE is None:
+        return jsonify({"error": "Feature importance not available"}), 500
+
+    sorted_features = sorted(
+        FEATURE_IMPORTANCE.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    return jsonify({
+        "feature_importance": sorted_features
+    })
+
+
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    print("🔥 /feedback endpoint HIT")
+
+    data = request.get_json()
+    print("📩 Feedback data received:", data)
+
+    row = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "correct": data["correct"],
+        "prediction": data["prediction"],
+        **data["input"]
+    }
+
+    os.makedirs("feedback", exist_ok=True)
+    filepath = os.path.join("feedback", "feedback.csv")
+
+    write_header = not os.path.exists(filepath)
+
+    with open(filepath, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=row.keys())
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+
+    print("📝 Feedback saved")
+    return jsonify({"status": "saved"})
+
 
 if __name__ == "__main__":
     print("🌍 Flask server starting...\n")
