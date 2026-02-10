@@ -6,7 +6,10 @@ data/*.json
 # Ignore Pickle models
 model/*.pkl
 
-# Allow README in data folder
+# Ignore all files in data
+data/*
+
+# EXCEPT README.md
 !data/README.md
 
 # Python cache
@@ -26,3 +29,8 @@ env/
 # OS files
 .DS_Store
 Thumbs.db
+
+# feedback
+feedback/
+
+logs/

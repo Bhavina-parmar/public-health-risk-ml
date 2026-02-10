@@ -5,6 +5,7 @@ import joblib
 import numpy as np
 import os
 import sys
+from app.logger import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from model.schema import SCHEMA
@@ -67,10 +68,13 @@ def home():
 @app.route("/predict", methods=["POST"])
 def predict():
     data = request.get_json()
-
+    logger.info(
+        f"PREDICTION | result={pred} | confidence={confidence:.4f} | drift={drifted}"
+    )
     # 🔒 Schema validation
     for field, rules in SCHEMA.items():
         if field not in data:
+            logger.warning(f"VALIDATION_ERROR | missing_field={field}")
             return jsonify({"error": f"Missing field: {field}"}), 400
 
         try:
@@ -83,6 +87,9 @@ def predict():
 
         if "max" in rules and value > rules["max"]:
             return jsonify({"error": f"{field} above maximum"}), 400
+
+    
+
 
     # Feature order consistency
     X = np.array([[data[f] for f in FEATURES]], dtype=float)
@@ -103,6 +110,8 @@ def predict():
     # 🔥 Drift detection
     input_dict = {f: float(data[f]) for f in FEATURES}
     drifted = detect_drift(input_dict)
+    if drifted:
+        logger.warning(f"DATA_DRIFT | features={drifted}")
 
     return jsonify({
         "prediction": pred,
