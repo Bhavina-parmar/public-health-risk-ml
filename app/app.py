@@ -1,125 +1,99 @@
+# app/app.py
+
 from flask import Flask, request, jsonify
 import joblib
 import numpy as np
 import os
-import csv
-import datetime
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from model.schema import SCHEMA
+
 
 app = Flask(__name__)
 
 print("\n🚀 Starting Flask API...")
 
+# ----------------------------
+# Resolve paths
+# ----------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(BASE_DIR, "model", "best_model.pkl")
-FEATURE_PATH = os.path.join(BASE_DIR, "model", "features.pkl")
+MODEL_DIR = os.path.join(BASE_DIR, "model")
 
-print(f"📁 Model path: {MODEL_PATH}")
-print(f"📁 Feature path: {FEATURE_PATH}")
-print(f"📦 Model exists: {os.path.exists(MODEL_PATH)}")
-print(f"📦 Features exists: {os.path.exists(FEATURE_PATH)}")
+with open(os.path.join(MODEL_DIR, "latest.txt"), "r", encoding="utf-8") as f:
+    ACTIVE_VERSION = f.read().strip()
 
-model = None
-FEATURES = None
+MODEL_PATH = os.path.join(MODEL_DIR, ACTIVE_VERSION, "model.pkl")
+FEATURE_PATH = os.path.join(MODEL_DIR, ACTIVE_VERSION, "features.pkl")
 
-try:
-    print("🔄 Loading model...")
-    model = joblib.load(MODEL_PATH)
-    print("🎉 Model object imported:", type(model))
-except Exception as e:
-    print("❌ Failed loading model:", e)
+print(f"📦 Loading model version: {ACTIVE_VERSION}")
 
-try:
-    print("🔄 Loading feature list...")
-    FEATURES = joblib.load(FEATURE_PATH)
-    print("🎉 Features loaded:", FEATURES)
-except Exception as e:
-    print("❌ Failed loading features:", e)
+# ----------------------------
+# Load model + features
+# ----------------------------
+model = joblib.load(MODEL_PATH)
+FEATURES = joblib.load(FEATURE_PATH)
 
-print("🐍 Reached end of load block\n")
-FEATURE_IMPORTANCE = None
+print("🎉 Model & features loaded successfully")
 
-if model is not None and hasattr(model, "feature_importances_"):
-    FEATURE_IMPORTANCE = dict(
-        zip(FEATURES, model.feature_importances_)
-    )
-
-
+# ----------------------------
+# Routes
+# ----------------------------
 @app.route("/")
 def home():
-    return jsonify({"message": "API running!"})
+    return jsonify({"message": "API running"})
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    print("➡️ Endpoint called")
     data = request.get_json()
-    print("📩 Data received:", data)
 
-    if FEATURES is None or model is None:
-        return jsonify({"error": "Model not ready"}), 500
-    
-    missing = [f for f in FEATURES if f not in data]
-    if missing:
-        print("⛔ Missing:", missing)
-        return jsonify({"error": f"Missing fields: {missing}"}), 400
+    # 🔒 Schema validation
+    for field, rules in SCHEMA.items():
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
 
-    values = [data[f] for f in FEATURES]
-    X = np.array([values], dtype=float)
-    proba=model.predict_proba(X)[0]
-    pred=int(proba.argmax())
-    confidence=float(proba[pred])
+        try:
+            value = float(data[field])
+        except:
+            return jsonify({"error": f"{field} must be numeric"}), 400
+
+        if "min" in rules and value < rules["min"]:
+            return jsonify({"error": f"{field} below minimum"}), 400
+
+        if "max" in rules and value > rules["max"]:
+            return jsonify({"error": f"{field} above maximum"}), 400
+
+    # Ensure feature order consistency
+    X = np.array([[data[f] for f in FEATURES]], dtype=float)
+
+    # Prediction + confidence
+    proba = model.predict_proba(X)[0]
+    pred = int(proba.argmax())
+    confidence = float(proba[pred])
+
+    # Local explanation
+    contributions = []
+    for i, feature in enumerate(FEATURES):
+        score = abs(X[0][i] * model.feature_importances_[i])
+        contributions.append((feature, round(score, 4)))
+
+    top_features = sorted(contributions, key=lambda x: x[1], reverse=True)[:5]
+
     return jsonify({
-        "prediction":pred,
-        "confidence":round(confidence,4)
+        "prediction": pred,
+        "confidence": round(confidence, 4),
+        "top_features": top_features
     })
-    # pred = model.predict(X)[0]
-    # return jsonify({"prediction": int(pred)})
 
 @app.route("/feature-importance", methods=["GET"])
 def feature_importance():
-    if FEATURE_IMPORTANCE is None:
-        return jsonify({"error": "Feature importance not available"}), 500
+    importance = dict(zip(FEATURES, model.feature_importances_))
+    sorted_imp = sorted(importance.items(), key=lambda x: x[1], reverse=True)
+    return jsonify({"feature_importance": sorted_imp})
 
-    sorted_features = sorted(
-        FEATURE_IMPORTANCE.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
-
-    return jsonify({
-        "feature_importance": sorted_features
-    })
-
-
-@app.route("/feedback", methods=["POST"])
-def feedback():
-    print("🔥 /feedback endpoint HIT")
-
-    data = request.get_json()
-    print("📩 Feedback data received:", data)
-
-    row = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "correct": data["correct"],
-        "prediction": data["prediction"],
-        **data["input"]
-    }
-
-    os.makedirs("feedback", exist_ok=True)
-    filepath = os.path.join("feedback", "feedback.csv")
-
-    write_header = not os.path.exists(filepath)
-
-    with open(filepath, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=row.keys())
-        if write_header:
-            writer.writeheader()
-        writer.writerow(row)
-
-    print("📝 Feedback saved")
-    return jsonify({"status": "saved"})
-
-
+# ----------------------------
+# Start server
+# ----------------------------
 if __name__ == "__main__":
-    print("🌍 Flask server starting...\n")
-    app.run(debug=False, use_reloader=False)
-
+    print("🌍 Flask server running on http://127.0.0.1:5000\n")
+    app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
