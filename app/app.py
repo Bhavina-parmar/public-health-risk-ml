@@ -6,6 +6,11 @@ import numpy as np
 import os
 import sys
 from app.logger import logger
+from app.alerts import (
+    DRIFT_ALERT_THRESHOLD,
+    LOW_CONFIDENCE_THRESHOLD
+)
+from app.logger import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from model.schema import SCHEMA
@@ -76,17 +81,21 @@ def predict():
         if field not in data:
             logger.warning(f"VALIDATION_ERROR | missing_field={field}")
             return jsonify({"error": f"Missing field: {field}"}), 400
-
         try:
-            value = float(data[field])
-        except:
-            return jsonify({"error": f"{field} must be numeric"}), 400
+    # existing predict logic
+            try:
+                value = float(data[field])
+            except:
+                return jsonify({"error": f"{field} must be numeric"}), 400
 
-        if "min" in rules and value < rules["min"]:
-            return jsonify({"error": f"{field} below minimum"}), 400
+            if "min" in rules and value < rules["min"]:
+                return jsonify({"error": f"{field} below minimum"}), 400
 
-        if "max" in rules and value > rules["max"]:
-            return jsonify({"error": f"{field} above maximum"}), 400
+            if "max" in rules and value > rules["max"]:
+                return jsonify({"error": f"{field} above maximum"}), 400
+        except Exception as e:
+            logger.error(f"INTERNAL_ERROR | {str(e)}", exc_info=True)
+            return jsonify({"error": "Internal server error"}), 500
 
     
 
@@ -112,13 +121,28 @@ def predict():
     drifted = detect_drift(input_dict)
     if drifted:
         logger.warning(f"DATA_DRIFT | features={drifted}")
+    alerts = []
 
+# 🚨 Drift alert
+    if len(drifted) >= DRIFT_ALERT_THRESHOLD:
+        msg = f"ALERT | High drift detected | features={drifted}"
+        logger.error(msg)
+        alerts.append("HIGH_DRIFT")
+
+# 🚨 Low confidence alert
+    if confidence < LOW_CONFIDENCE_THRESHOLD:
+        msg = f"ALERT | Low confidence | confidence={confidence:.4f}"
+        logger.warning(msg)
+        alerts.append("LOW_CONFIDENCE")
     return jsonify({
         "prediction": pred,
         "confidence": round(confidence, 4),
         "top_features": top_features,
-        "drift_detected": drifted
+        "drift_detected": drifted,
+        "alerts": alerts
     })
+
+
 
 @app.route("/feature-importance", methods=["GET"])
 def feature_importance():
