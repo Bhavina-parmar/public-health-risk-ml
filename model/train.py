@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from datetime import datetime
+from model.validate import validate_dataframe
 
 
 # ----------------------------
@@ -26,6 +27,17 @@ EXPERIMENT_PATH = os.path.join(BASE_DIR, "..", "experiments", "experiments.csv")
 print("📊 Loading dataset...")
 df = pd.read_csv(DATA_PATH)
 print(f"✔ Loaded: {df.shape}")
+
+print("🔍 Validating dataset...")
+valid, errors = validate_dataframe(df)
+
+if not valid:
+    print("❌ Data validation failed:")
+    for e in errors:
+        print(" -", e)
+    raise ValueError("Training stopped due to invalid data")
+
+print("✅ Data validation passed")
 
 # ----------------------------
 # Create target
@@ -121,3 +133,16 @@ print("🧪 Experiment logged")
 
 print(f"💾 Model saved as {version_name}")
 print("🎉 Training complete")
+# ----------------------------
+# Save training statistics (for drift detection)
+# ----------------------------
+stats = {}
+
+for col in feature_cols:
+    stats[col] = {
+        "mean": float(df[col].mean()),
+        "std": float(df[col].std())
+    }
+
+joblib.dump(stats, os.path.join(version_path, "stats.pkl"))
+print("📈 Training statistics saved")

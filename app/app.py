@@ -9,7 +9,6 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from model.schema import SCHEMA
 
-
 app = Flask(__name__)
 
 print("\n🚀 Starting Flask API...")
@@ -25,16 +24,38 @@ with open(os.path.join(MODEL_DIR, "latest.txt"), "r", encoding="utf-8") as f:
 
 MODEL_PATH = os.path.join(MODEL_DIR, ACTIVE_VERSION, "model.pkl")
 FEATURE_PATH = os.path.join(MODEL_DIR, ACTIVE_VERSION, "features.pkl")
+STATS_PATH = os.path.join(MODEL_DIR, ACTIVE_VERSION, "stats.pkl")
 
 print(f"📦 Loading model version: {ACTIVE_VERSION}")
 
 # ----------------------------
-# Load model + features
+# Load model + features + stats
 # ----------------------------
 model = joblib.load(MODEL_PATH)
 FEATURES = joblib.load(FEATURE_PATH)
+TRAIN_STATS = joblib.load(STATS_PATH)
 
-print("🎉 Model & features loaded successfully")
+print("🎉 Model, features & stats loaded successfully")
+
+# ----------------------------
+# Drift detection
+# ----------------------------
+def detect_drift(input_data):
+    drifted_features = []
+
+    for feature in FEATURES:
+        mean = TRAIN_STATS[feature]["mean"]
+        std = TRAIN_STATS[feature]["std"]
+
+        if std == 0:
+            continue
+
+        z_score = abs((input_data[feature] - mean) / std)
+
+        if z_score > 3:  # 3-sigma rule
+            drifted_features.append(feature)
+
+    return drifted_features
 
 # ----------------------------
 # Routes
@@ -63,7 +84,7 @@ def predict():
         if "max" in rules and value > rules["max"]:
             return jsonify({"error": f"{field} above maximum"}), 400
 
-    # Ensure feature order consistency
+    # Feature order consistency
     X = np.array([[data[f] for f in FEATURES]], dtype=float)
 
     # Prediction + confidence
@@ -79,10 +100,15 @@ def predict():
 
     top_features = sorted(contributions, key=lambda x: x[1], reverse=True)[:5]
 
+    # 🔥 Drift detection
+    input_dict = {f: float(data[f]) for f in FEATURES}
+    drifted = detect_drift(input_dict)
+
     return jsonify({
         "prediction": pred,
         "confidence": round(confidence, 4),
-        "top_features": top_features
+        "top_features": top_features,
+        "drift_detected": drifted
     })
 
 @app.route("/feature-importance", methods=["GET"])
